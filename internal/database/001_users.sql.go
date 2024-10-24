@@ -21,7 +21,7 @@ RETURNING id, created_at, updated_at, email
 `
 
 func (q *Queries) CreateUser(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, email)
+	row := q.db.QueryRow(ctx, createUser, email)
 	var i User
 	err := row.Scan(
 		&i.ID,

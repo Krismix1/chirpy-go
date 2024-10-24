@@ -2,13 +2,13 @@ package main
 
 import (
 	"chirpy/internal/database"
-	"database/sql"
+	"context"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -20,17 +20,13 @@ func main() {
 		return
 	}
 
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatalf("Failed to open database: %s\n", err)
-		return
-	}
-
-	err = db.Ping()
+	db, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %s\n", err)
 		return
 	}
+	defer db.Close(context.Background())
+
 	dbQueries := database.New(db)
 
 	apiCfg := apiConfig{dbQueries: dbQueries}
