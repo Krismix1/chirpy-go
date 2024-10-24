@@ -2,12 +2,12 @@ package main
 
 import (
 	"chirpy/internal/database"
-	"context"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 )
 
@@ -19,13 +19,19 @@ func main() {
 		log.Fatal("DB_URL envvar must be set")
 		return
 	}
+	config, err := pgx.ParseConfig(dbURL)
+	if err != nil {
+		log.Fatalf("Failed to parse DB URL: %s\n", err)
+		return
+	}
+	db := stdlib.OpenDB(*config)
+	defer db.Close()
 
-	db, err := pgx.Connect(context.Background(), dbURL)
+	err = db.Ping()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %s\n", err)
 		return
 	}
-	defer db.Close(context.Background())
 
 	dbQueries := database.New(db)
 
