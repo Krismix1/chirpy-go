@@ -1,11 +1,39 @@
 package main
 
 import (
+	"chirpy/internal/database"
+	"database/sql"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
-	apiCfg := apiConfig{}
+	godotenv.Load()
+
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL envvar must be set")
+		return
+	}
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to open database: %s\n", err)
+		return
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %s\n", err)
+		return
+	}
+	dbQueries := database.New(db)
+
+	apiCfg := apiConfig{dbQueries: dbQueries}
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
