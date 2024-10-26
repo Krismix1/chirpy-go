@@ -35,7 +35,7 @@ func main() {
 
 	dbQueries := database.New(db)
 
-	apiCfg := apiConfig{dbQueries: dbQueries}
+	apiCfg := apiConfig{dbQueries: dbQueries, platform: os.Getenv("PLATFORM")}
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
@@ -43,6 +43,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.reset)
 	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
+	mux.HandleFunc("POST /api/users", apiCfg.createUser)
 
 	server := http.Server{
 		Addr:    ":8080",
