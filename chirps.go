@@ -27,18 +27,20 @@ func filterProfanity(msg string) string {
 	return getCleanedMsg(msg, profanityWords)
 }
 
+type chirpInfo struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
 func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
 	type createChirpBody struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
 	}
-	type createChirpResponse struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		UserID    uuid.UUID `json:"user_id"`
-	}
+
 	defer req.Body.Close()
 
 	decoder := json.NewDecoder(req.Body)
@@ -64,11 +66,30 @@ func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	respondWithJSON(rw, http.StatusCreated, createChirpResponse{
+	respondWithJSON(rw, http.StatusCreated, chirpInfo{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 		Body:      chirp.Body,
 		UserID:    chirp.UserID,
 	})
+}
+
+func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Request) {
+	chirps, err := ac.dbQueries.ListAllChirps(req.Context())
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Failed to get chirps", err)
+		return
+	}
+	response := make([]chirpInfo, 0, len(chirps))
+	for _, chirp := range chirps {
+		response = append(response, chirpInfo{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		})
+	}
+	respondWithJSON(rw, http.StatusOK, response)
 }
