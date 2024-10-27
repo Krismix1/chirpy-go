@@ -2,7 +2,10 @@ package main
 
 import (
 	"chirpy/internal/database"
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -92,4 +95,35 @@ func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Requ
 		})
 	}
 	respondWithJSON(rw, http.StatusOK, response)
+}
+
+func (ac *apiConfig) GetChirpById(rw http.ResponseWriter, req *http.Request) {
+	chirpId := req.PathValue("id")
+	if chirpId == "" {
+		respondWithError(rw, http.StatusBadRequest, "Chirp ID not specified", nil)
+		return
+	}
+	id, err := uuid.Parse(chirpId)
+	if err != nil {
+		respondWithError(rw, http.StatusBadRequest, "Chirp ID is invalid", err)
+		return
+	}
+
+	chirp, err := ac.dbQueries.GetChirpById(req.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", id), err)
+			return
+		}
+		respondWithError(rw, http.StatusInternalServerError, "Failed to get chirp", err)
+		return
+	}
+
+	respondWithJSON(rw, http.StatusOK, chirpInfo{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+	})
 }
