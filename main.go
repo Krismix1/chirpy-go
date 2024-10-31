@@ -14,6 +14,12 @@ import (
 func main() {
 	godotenv.Load()
 
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		log.Fatal("TOKEN_SECRET envvar must be set")
+		return
+	}
+
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL envvar must be set")
@@ -35,7 +41,7 @@ func main() {
 
 	dbQueries := database.New(db)
 
-	apiCfg := apiConfig{dbQueries: dbQueries, platform: os.Getenv("PLATFORM")}
+	apiCfg := apiConfig{dbQueries: dbQueries, platform: os.Getenv("PLATFORM"), tokenSecret: tokenSecret}
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))

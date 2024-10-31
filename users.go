@@ -18,6 +18,7 @@ type User struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Token     string    `json:"token"`
 }
 
 func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request) {
@@ -35,7 +36,7 @@ func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request
 		respondWithError(rw, http.StatusBadRequest, "Failed to parse request body", err)
 		return
 	}
-	hashed_pwd, err := auth.HashPassword(body.Password)
+	hashedPWD, err := auth.HashPassword(body.Password)
 	if err != nil {
 		log.Printf("Failed to hash password: %s\n", err)
 		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
@@ -44,7 +45,7 @@ func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request
 
 	user, err := ac.dbQueries.CreateUser(req.Context(), database.CreateUserParams{
 		Email:          body.Email,
-		HashedPassword: hashed_pwd,
+		HashedPassword: hashedPWD,
 	})
 
 	if err != nil {
@@ -59,8 +60,9 @@ func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request
 
 func (ac *apiConfig) handlerLogin(rw http.ResponseWriter, req *http.Request) {
 	type reqData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds uint   `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -88,10 +90,18 @@ func (ac *apiConfig) handlerLogin(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	expiresInSeconds := uint(3600)
+	if body.ExpiresInSeconds != 0 {
+		expiresInSeconds = min(body.ExpiresInSeconds, 3600)
+	}
+
+	token, err := auth.MakeJWT(user.ID, ac.tokenSecret, time.Duration(expiresInSeconds)*time.Second)
+
 	respondWithJSON(rw, http.StatusOK, User{
 		ID:        user.ID,
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
+		Token:     token,
 	})
 }

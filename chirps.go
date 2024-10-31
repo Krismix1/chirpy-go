@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/auth"
 	"chirpy/internal/database"
 	"database/sql"
 	"encoding/json"
@@ -40,15 +41,25 @@ type chirpInfo struct {
 
 func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Request) {
 	type createChirpBody struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	defer req.Body.Close()
 
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Invalid authorization", nil)
+		return
+	}
+	userID, err := auth.ValidateJWT(token, ac.tokenSecret)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Invalid authorization", nil)
+		return
+	}
+
 	decoder := json.NewDecoder(req.Body)
 	params := createChirpBody{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Couldn't decode parameters", err)
 		return
@@ -62,7 +73,7 @@ func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reques
 
 	chirp, err := ac.dbQueries.CreateChirp(req.Context(), database.CreateChirpParams{
 		Body:   filterProfanity(params.Body),
-		UserID: params.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Failed to create chirp", err)
