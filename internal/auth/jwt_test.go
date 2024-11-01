@@ -12,11 +12,12 @@ func TestJWT(t *testing.T) {
 	tokenKey := "random-key"
 
 	tests := []struct {
-		name      string
-		userID    uuid.UUID
-		customKey string
-		expired   bool
-		wantErr   bool
+		name        string
+		userID      uuid.UUID
+		customKey   string
+		customToken string
+		expired     bool
+		wantErr     bool
 	}{
 		{
 			name:      "Correct token",
@@ -27,36 +28,26 @@ func TestJWT(t *testing.T) {
 		},
 		{
 			name:      "Expired token",
-			userID:    uuid.New(),
+			userID:    uuid.Nil,
 			customKey: "",
 			expired:   true,
 			wantErr:   true,
 		},
 		{
 			name:      "Wrong key",
-			userID:    uuid.New(),
+			userID:    uuid.Nil,
 			customKey: "custom",
 			expired:   false,
 			wantErr:   true,
 		},
-		// {
-		// 	name:     "Password doesn't match different hash",
-		// 	password: password1,
-		// 	hash:     hash2,
-		// 	wantErr:  true,
-		// },
-		// {
-		// 	name:     "Empty password",
-		// 	password: "",
-		// 	hash:     hash1,
-		// 	wantErr:  true,
-		// },
-		// {
-		// 	name:     "Invalid hash",
-		// 	password: password1,
-		// 	hash:     "invalidhash",
-		// 	wantErr:  true,
-		// },
+		{
+			name:        "Invalid token",
+			userID:      uuid.Nil,
+			customToken: "invalid.token.here",
+			customKey:   "",
+			expired:     false,
+			wantErr:     true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -66,7 +57,9 @@ func TestJWT(t *testing.T) {
 				key = tt.customKey
 			}
 			token, err := MakeJWT(tt.userID, key, 1*time.Minute)
-			if tt.expired {
+			if tt.customToken != "" {
+				token = tt.customToken
+			} else if tt.expired {
 				token, err = MakeJWT(tt.userID, key, 1*time.Millisecond)
 				time.Sleep(2 * time.Millisecond)
 			}
@@ -123,7 +116,15 @@ func TestGetBearerToken(t *testing.T) {
 				"Authorization": []string{"123"},
 			},
 			value:   "123",
-			wantErr: false, // really?
+			wantErr: true,
+		},
+		{
+			name: "Malformed Authorization header",
+			headers: http.Header{
+				"Authorization": []string{"InvalidBearer token"},
+			},
+			value:   "",
+			wantErr: true,
 		},
 	}
 

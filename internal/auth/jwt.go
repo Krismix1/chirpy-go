@@ -29,16 +29,16 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return []byte(tokenSecret), nil
 	})
 	if err != nil {
-		return uuid.UUID{}, err
+		return uuid.Nil, err
 	}
 	_, err = token.Claims.GetExpirationTime()
 	if err != nil {
-		return uuid.UUID{}, err
+		return uuid.Nil, err
 	}
 
 	subject, err := token.Claims.GetSubject()
 	if err != nil {
-		return uuid.UUID{}, err
+		return uuid.Nil, err
 	}
 	return uuid.Parse(subject)
 }
@@ -48,6 +48,10 @@ func GetBearerToken(headers http.Header) (string, error) {
 	if value == "" {
 		return "", errors.New("Header not found")
 	}
-	value = strings.TrimPrefix(value, "Bearer ")
-	return value, nil
+	splitAuth := strings.Split(value, " ")
+	if len(splitAuth) < 2 || splitAuth[0] != "Bearer" {
+		return "", errors.New("malformed authorization header")
+	}
+
+	return splitAuth[1], nil
 }
