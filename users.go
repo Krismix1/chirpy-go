@@ -3,6 +3,7 @@ package main
 import (
 	"chirpy/internal/auth"
 	"chirpy/internal/database"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -14,11 +15,12 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Token     string    `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	Email        string    `json:"email"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request) {
@@ -60,9 +62,8 @@ func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request
 
 func (ac *apiConfig) handlerLogin(rw http.ResponseWriter, req *http.Request) {
 	type reqData struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds uint   `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -90,18 +91,94 @@ func (ac *apiConfig) handlerLogin(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	expiresInSeconds := uint(3600)
-	if body.ExpiresInSeconds != 0 {
-		expiresInSeconds = min(body.ExpiresInSeconds, 3600)
+	token, err := auth.MakeJWT(user.ID, ac.tokenSecret, 1*time.Hour)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
 	}
 
-	token, err := auth.MakeJWT(user.ID, ac.tokenSecret, time.Duration(expiresInSeconds)*time.Second)
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+	_, err = ac.dbQueries.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(60 * 24 * time.Hour),
+	})
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
 
 	respondWithJSON(rw, http.StatusOK, User{
-		ID:        user.ID,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Token:     token,
+		ID:           user.ID,
+		Email:        user.Email,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Token:        token,
+		RefreshToken: refreshToken,
 	})
+}
+
+func (ac *apiConfig) handlerRefreshToken(rw http.ResponseWriter, req *http.Request) {
+	refreshToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Must provide refresh token", err)
+		return
+	}
+	refreshTokenInfo, err := ac.dbQueries.FindRefreshToken(req.Context(), refreshToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+			return
+		}
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+	if refreshTokenInfo.ExpiresAt.UTC().Before(time.Now().UTC()) {
+		respondWithError(rw, http.StatusUnauthorized, "Refresh token expired", nil)
+		return
+	}
+
+	accessToken, err := auth.MakeJWT(refreshTokenInfo.UserID, ac.tokenSecret, 1*time.Hour)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Internal Server Error", err)
+		return
+	}
+
+	type responseData struct {
+		Token string `json:"token"`
+	}
+	respondWithJSON(rw, http.StatusOK, responseData{
+		Token: accessToken,
+	})
+}
+
+func (ac *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *http.Request) {
+	refreshToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Must provide refresh token", err)
+		return
+	}
+	_, err = ac.dbQueries.FindRefreshToken(req.Context(), refreshToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+			return
+		}
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+	err = ac.dbQueries.RevokeRefreshToken(req.Context(), refreshToken)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Internal Server Error", err)
+		return
+	}
+
+	type responseData struct {
+		Token string `json:"token"`
+	}
+	respondWithJSON(rw, http.StatusNoContent, nil)
 }

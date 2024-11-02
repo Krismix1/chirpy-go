@@ -1,9 +1,8 @@
 package auth
 
 import (
-	"errors"
-	"net/http"
-	"strings"
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -43,15 +42,11 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	return uuid.Parse(subject)
 }
 
-func GetBearerToken(headers http.Header) (string, error) {
-	value := headers.Get("Authorization")
-	if value == "" {
-		return "", errors.New("Header not found")
+func MakeRefreshToken() (string, error) {
+	data := make([]byte, 256)
+	_, err := rand.Read(data)
+	if err != nil {
+		return "", err
 	}
-	splitAuth := strings.Split(value, " ")
-	if len(splitAuth) < 2 || splitAuth[0] != "Bearer" {
-		return "", errors.New("malformed authorization header")
-	}
-
-	return splitAuth[1], nil
+	return hex.EncodeToString(data), nil
 }
