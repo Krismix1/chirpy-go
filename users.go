@@ -182,3 +182,64 @@ func (ac *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *http
 	}
 	respondWithJSON(rw, http.StatusNoContent, nil)
 }
+
+func (ac *apiConfig) handlerUpdateUser(rw http.ResponseWriter, req *http.Request) {
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, ac.tokenSecret)
+	if err != nil {
+		respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+		return
+	}
+	user, err := ac.dbQueries.FindUserById(req.Context(), userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+			return
+		}
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+
+	type reqData struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	defer req.Body.Close()
+
+	decoder := json.NewDecoder(req.Body)
+	var data = reqData{}
+	if err = decoder.Decode(&data); err != nil {
+		respondWithError(rw, http.StatusBadRequest, "Invalid data", err)
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(data.Password)
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+
+	updatedAt, err := ac.dbQueries.UpdateUserCredentials(req.Context(), database.UpdateUserCredentialsParams{
+		Email:          data.Email,
+		HashedPassword: hashedPassword,
+		ID:             user.ID,
+	})
+
+	if err != nil {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
+		return
+	}
+
+	respondWithJSON(rw, http.StatusOK, User{
+		ID:        user.ID,
+		Email:     data.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: updatedAt,
+	})
+
+}
