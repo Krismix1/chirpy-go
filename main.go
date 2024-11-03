@@ -19,6 +19,11 @@ func main() {
 		log.Fatal("TOKEN_SECRET envvar must be set")
 		return
 	}
+	polkaKey := os.Getenv("POLKA_KEY")
+	if polkaKey == "" {
+		log.Fatal("POLKA_KEY envvar must be set")
+		return
+	}
 
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
@@ -41,7 +46,7 @@ func main() {
 
 	dbQueries := database.New(db)
 
-	apiCfg := apiConfig{dbQueries: dbQueries, platform: os.Getenv("PLATFORM"), tokenSecret: tokenSecret}
+	apiCfg := apiConfig{dbQueries: dbQueries, platform: os.Getenv("PLATFORM"), tokenSecret: tokenSecret, polkaKey: polkaKey}
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/auth"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,12 @@ import (
 )
 
 func (ac *apiConfig) handlerPolkaWebhook(rw http.ResponseWriter, req *http.Request) {
+	apiKey, err := auth.GetAPIKey(req.Header)
+	if err != nil || apiKey != ac.polkaKey {
+		respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
+		return
+	}
+
 	type reqData struct {
 		Event string `json:"event"`
 		Data  struct {
