@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -95,6 +96,15 @@ func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Requ
 	var err error
 
 	authorIDString := req.URL.Query().Get("author_id")
+	sortOrder := req.URL.Query().Get("sort")
+	if sortOrder == "" {
+		sortOrder = "asc"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		respondWithError(rw, http.StatusBadRequest, fmt.Sprintf("Invalid sort order '%s'. Must be either 'asc' or 'desc'", sortOrder), nil)
+		return
+	}
+
 	if authorIDString != "" {
 		authorID, err := uuid.Parse(authorIDString)
 		if err != nil {
@@ -109,6 +119,11 @@ func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Requ
 		respondWithError(rw, http.StatusInternalServerError, "Failed to get chirps", err)
 		return
 	}
+
+	if sortOrder == "desc" {
+		slices.Reverse(chirps)
+	}
+
 	response := make([]chirpInfo, 0, len(chirps))
 	for _, chirp := range chirps {
 		response = append(response, chirpInfo{
