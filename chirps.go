@@ -120,7 +120,7 @@ func (ac *apiConfig) GetChirpById(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	chirp, err := ac.dbQueries.GetChirpById(req.Context(), id)
+	chirp, err := ac.dbQueries.FindChirpById(req.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", id), err)
@@ -172,7 +172,7 @@ func (ac *apiConfig) handlerDeleteChirp(rw http.ResponseWriter, req *http.Reques
 		respondWithError(rw, http.StatusBadRequest, "Invalid chirp ID", err)
 		return
 	}
-	chirp, err := ac.dbQueries.GetChirpById(req.Context(), chirpUUID)
+	chirp, err := ac.dbQueries.FindChirpById(req.Context(), chirpUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", chirpId), err)
