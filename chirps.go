@@ -90,7 +90,21 @@ func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reques
 }
 
 func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Request) {
-	chirps, err := ac.dbQueries.ListAllChirps(req.Context())
+
+	var chirps []database.Chirp
+	var err error
+
+	authorIDString := req.URL.Query().Get("author_id")
+	if authorIDString != "" {
+		authorID, err := uuid.Parse(authorIDString)
+		if err != nil {
+			respondWithError(rw, http.StatusBadRequest, "Invalid author ID", err)
+			return
+		}
+		chirps, err = ac.dbQueries.ListAllChirpsForUser(req.Context(), authorID)
+	} else {
+		chirps, err = ac.dbQueries.ListAllChirps(req.Context())
+	}
 	if err != nil {
 		respondWithError(rw, http.StatusInternalServerError, "Failed to get chirps", err)
 		return
