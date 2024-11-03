@@ -180,7 +180,7 @@ func (ac *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *http
 	type responseData struct {
 		Token string `json:"token"`
 	}
-	respondWithJSON(rw, http.StatusNoContent, nil)
+	rw.WriteHeader(http.StatusNoContent)
 }
 
 func (ac *apiConfig) handlerUpdateUser(rw http.ResponseWriter, req *http.Request) {

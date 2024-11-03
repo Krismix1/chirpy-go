@@ -109,21 +109,21 @@ func (ac *apiConfig) handlerListAllChirps(rw http.ResponseWriter, req *http.Requ
 }
 
 func (ac *apiConfig) GetChirpById(rw http.ResponseWriter, req *http.Request) {
-	chirpId := req.PathValue("id")
-	if chirpId == "" {
+	chirpIDString := req.PathValue("id")
+	if chirpIDString == "" {
 		respondWithError(rw, http.StatusBadRequest, "Chirp ID not specified", nil)
 		return
 	}
-	id, err := uuid.Parse(chirpId)
+	chirpID, err := uuid.Parse(chirpIDString)
 	if err != nil {
 		respondWithError(rw, http.StatusBadRequest, "Chirp ID is invalid", err)
 		return
 	}
 
-	chirp, err := ac.dbQueries.FindChirpById(req.Context(), id)
+	chirp, err := ac.dbQueries.FindChirpById(req.Context(), chirpID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", id), err)
+			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", chirpID), err)
 			return
 		}
 		respondWithError(rw, http.StatusInternalServerError, "Failed to get chirp", err)
@@ -140,6 +140,17 @@ func (ac *apiConfig) GetChirpById(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (ac *apiConfig) handlerDeleteChirp(rw http.ResponseWriter, req *http.Request) {
+	chirpIDString := req.PathValue("id")
+	if chirpIDString == "" {
+		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", nil)
+		return
+	}
+	chirpID, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		respondWithError(rw, http.StatusBadRequest, "Invalid chirp ID", err)
+		return
+	}
+
 	token, err := auth.GetBearerToken(req.Header)
 	if err != nil {
 		respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
@@ -150,39 +161,18 @@ func (ac *apiConfig) handlerDeleteChirp(rw http.ResponseWriter, req *http.Reques
 		respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
 		return
 	}
-	user, err := ac.dbQueries.FindUserById(req.Context(), userID)
+
+	chirp, err := ac.dbQueries.FindChirpById(req.Context(), chirpID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(rw, http.StatusUnauthorized, "Invalid credentials", err)
-			return
-		}
-
-		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
-		return
-
-	}
-
-	chirpId := req.PathValue("id")
-	if chirpId == "" {
-		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", nil)
-		return
-	}
-	chirpUUID, err := uuid.Parse(chirpId)
-	if err != nil {
-		respondWithError(rw, http.StatusBadRequest, "Invalid chirp ID", err)
-		return
-	}
-	chirp, err := ac.dbQueries.FindChirpById(req.Context(), chirpUUID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", chirpId), err)
+			respondWithError(rw, http.StatusNotFound, fmt.Sprintf("Chirp %s not found", chirpIDString), err)
 			return
 		}
 		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
 		return
 	}
 
-	if chirp.UserID != user.ID {
+	if chirp.UserID != userID {
 		respondWithError(rw, http.StatusForbidden, "Access Forbiden", nil)
 		return
 	}
@@ -192,5 +182,5 @@ func (ac *apiConfig) handlerDeleteChirp(rw http.ResponseWriter, req *http.Reques
 		respondWithError(rw, http.StatusInternalServerError, "Internal Server Error", err)
 		return
 	}
-	respondWithJSON(rw, http.StatusNoContent, nil)
+	rw.WriteHeader(http.StatusNoContent)
 }
