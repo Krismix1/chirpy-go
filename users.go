@@ -30,8 +30,6 @@ func (ac *apiConfig) handlerCreateUser(rw http.ResponseWriter, req *http.Request
 		Password string `json:"password"`
 	}
 
-	defer req.Body.Close()
-
 	body := reqData{}
 
 	decoder := json.NewDecoder(req.Body)
@@ -73,7 +71,6 @@ func (ac *apiConfig) handlerLogin(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	decoder := json.NewDecoder(req.Body)
-	defer req.Body.Close()
 
 	body := reqData{}
 	if err := decoder.Decode(&body); err != nil {
@@ -216,7 +213,6 @@ func (ac *apiConfig) handlerUpdateUser(rw http.ResponseWriter, req *http.Request
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	defer req.Body.Close()
 
 	decoder := json.NewDecoder(req.Body)
 	var data = reqData{}

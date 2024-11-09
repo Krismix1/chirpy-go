@@ -23,7 +23,6 @@ func (ac *apiConfig) handlerPolkaWebhook(rw http.ResponseWriter, req *http.Reque
 		} `json:"data"`
 	}
 
-	defer req.Body.Close()
 	decoder := json.NewDecoder(req.Body)
 	var data = reqData{}
 	if err := decoder.Decode(&data); err != nil {

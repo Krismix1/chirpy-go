@@ -45,8 +45,6 @@ func (ac *apiConfig) handlerCreateChirp(rw http.ResponseWriter, req *http.Reques
 		Body string `json:"body"`
 	}
 
-	defer req.Body.Close()
-
 	token, err := auth.GetBearerToken(req.Header)
 	if err != nil {
 		respondWithError(rw, http.StatusUnauthorized, "Invalid authorization", nil)
