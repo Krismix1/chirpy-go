@@ -9,7 +9,7 @@ import (
 func GetBearerToken(headers http.Header) (string, error) {
 	value := headers.Get("Authorization")
 	if value == "" {
-		return "", errors.New("Header not found")
+		return "", errors.New("header not found")
 	}
 	splitAuth := strings.Split(value, " ")
 	if len(splitAuth) < 2 || splitAuth[0] != "Bearer" {
@@ -22,7 +22,7 @@ func GetBearerToken(headers http.Header) (string, error) {
 func GetAPIKey(headers http.Header) (string, error) {
 	value := headers.Get("Authorization")
 	if value == "" {
-		return "", errors.New("Header not found")
+		return "", errors.New("header not found")
 	}
 	splitAuth := strings.Split(value, " ")
 	if len(splitAuth) < 2 || splitAuth[0] != "ApiKey" {

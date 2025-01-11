@@ -181,9 +181,6 @@ func (ac *apiConfig) handlerRevokeRefreshToken(rw http.ResponseWriter, req *http
 		return
 	}
 
-	type responseData struct {
-		Token string `json:"token"`
-	}
 	rw.WriteHeader(http.StatusNoContent)
 }
 
